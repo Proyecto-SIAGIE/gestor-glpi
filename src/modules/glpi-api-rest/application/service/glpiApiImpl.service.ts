@@ -7,13 +7,18 @@ import { IGlpiApiService } from '../../domain/interface/iglpiApi.service';
 import { ErrorManager } from 'src/utils/errors/error.manager';
 import axios from 'axios';
 import * as https from 'https';
-import FormData from "form-data";
+import * as FormData from 'form-data';
 import { TicketGlpiDto } from '../dtos/ticket-glpi/ticketGlpi.dto';
 import { convertHtmlToText } from 'src/utils/functions/utility';
 import { AdditionalFieldImplRepository } from 'src/modules/glpi/infrastructure/repository/additionalFieldImpl.repository';
 import { AdditionalFieldDto } from 'src/modules/glpi/application/dtos/additionalField.dto';
 import { mapper } from 'src/utils/mapping/mapper';
 import { AdditionalFieldEntity } from 'src/modules/glpi/domain/model/additionalField.entity';
+import { UserExternalDto } from '../dtos/userExternal.dto';
+import { TicketDto } from '../dtos/ticket.dto';
+import { TicketDetailDto } from '../dtos/ticketDetail.dto';
+import { IieeDto } from '../dtos/iiee.dto';
+import { TicketGlpiFormDto } from '../dtos/ticket-glpi/ticketGlpiForm.dto';
 
 @Injectable()
 export class GlpiApiImplService implements IGlpiApiService {
@@ -91,14 +96,12 @@ export class GlpiApiImplService implements IGlpiApiService {
             //thisForm.append('uploadManifest', JSON.stringify(ticketRequest), { contentType: 'application/json' });
 
 
-            const response = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, ticketRequest, requestConfig);
-            console.log(response.data.id);
+            const {data} = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, ticketRequest, requestConfig);
+            //console.log(response.data.id);
 
             const additionalInfo: AdditionalFieldDto = {
-                id: null,
-                modularCode: null,
-
-                itemsId: response.data.id,
+                modularCode: ticket.iiee.modularCode,
+                itemsId: data.id,
                 itemType: 'ticket',
                 pluginFieldsContainersId: 1,
                 DNI: ticket.userRequest.dni,
@@ -108,21 +111,106 @@ export class GlpiApiImplService implements IGlpiApiService {
             }
 
             const addEntity = mapper.map(additionalInfo,AdditionalFieldDto,AdditionalFieldEntity);
-            console.log(addEntity)
+            await this.additionalFieldRepository.registerAdditionalInformation(addEntity);
+            return data;
+        } catch (error) {
+            throw ErrorManager.createSignatureError(error.message)
+            //throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
+        }
+    }
 
-            const result = await this.additionalFieldRepository.registerAdditionalInformation(addEntity);
-            console.log(result);
+    async createTicketWithFiles(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
+        try {
 
+            const sessionToken = await this.initSessionToken();
+
+            const userRequest: UserExternalDto = JSON.parse(ticketGlpi.userRequest);
+            const ticketRequest: TicketDto = JSON.parse(ticketGlpi.ticket);
+            const ticketDetailRequest: TicketDetailDto = JSON.parse(ticketGlpi.ticketDetail);
+            const iieeRequest: IieeDto = JSON.parse(ticketGlpi.iiee);
+
+            const requestConfig = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Session-Token': sessionToken,
+                    'App-Token': process.env.GLPI_APP_TOKEN
+                },
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            };
+
+            //console.log(files);
+
+        
+            const ticketFormatToGLPI = {
+                input: {
+                    name: ticketDetailRequest.summary,
+                    content: ticketRequest.description,
+                    type: ticketDetailRequest.type,
+                    locations_id: 2,
+                    itilcategories_id: (ticketRequest.subcategory3Id !== 0) ? ticketRequest.subcategory3Id :
+                        (ticketRequest.subcategory2Id !== 0) ? ticketRequest.subcategory2Id :
+                            (ticketRequest.subcategory1Id !== 0) ? ticketRequest.subcategory1Id :
+                            ticketRequest.categoryId,
+                    urgency: ticketDetailRequest.urgency,
+                    impact: ticketDetailRequest.impact,
+                    priority: ticketDetailRequest.priority,
+
+                    requesttypes_id: ticketDetailRequest.sourceId, //FUENTE DE SOLICITUD
+                    _users_id_requester: 0,
+                    _users_id_requester_notif: {
+                        use_notification: 1,
+                        alternative_email: [userRequest.email]
+                    },
+                    // _users_id_assign: 2,
+                    //_users_id_assign: agent_id, //  usuario asignado
+                    // _filename: obj._filename
+                    _filename: files.map((item) => item.originalname)
+                }
+            }
+
+            console.log(ticketFormatToGLPI);
+            console.log('----')
+
+            const thisForm = new FormData();
+            thisForm.append('uploadManifest', JSON.stringify(ticketFormatToGLPI), { contentType: 'application/json' });
+            
+            for (let i = 0; i < files.length; i++) {
+                const el = files[i];
+                thisForm.append(`file${i}`, el.buffer, el.originalname);
+            }
+
+            //const response = {data: {id: 3}}
+            console.log(thisForm);
+            const response = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
+      
+            const {status, statusText, data} = response;
+            console.log({
+                'status': status,
+                'statusText': statusText,
+                'data': data
+            })
+            //console.log(response.data.id);
+
+            const extraInfo: AdditionalFieldDto = {
+                modularCode: iieeRequest.modularCode,
+                itemsId: response.data.id,
+                itemType: 'ticket',
+                pluginFieldsContainersId: 3,
+                DNI: userRequest.dni,
+                phone: userRequest.phone,
+                requesterFullname: `${userRequest.name} ${userRequest.lastName}`,
+                studentDNI: ticketRequest.studentDNI
+            }
+
+            const addEntity = mapper.map(extraInfo,AdditionalFieldDto,AdditionalFieldEntity);
+            await this.additionalFieldRepository.registerAdditionalInformation(addEntity);
 
             return response.data;
-
         } catch (error) {
             console.log(error)
             throw ErrorManager.createSignatureError(error.message)
             //throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
         }
     }
-
-
 }
 

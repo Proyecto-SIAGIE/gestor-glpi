@@ -3,13 +3,15 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { resourceToModel } from './utils/mapping/resourceToModel.mapping';
-
+import * as bodyParser from 'body-parser';
 resourceToModel();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
   
+  app.use(bodyParser.json());
+
   app.useGlobalPipes(new ValidationPipe());
 
   const config = new DocumentBuilder()

@@ -37,7 +37,7 @@ export class AdditionalFieldEntity {
 
     @AutoMap()
     @Column('varchar',{
-        name: 'nombresolicitantefield'
+        name: 'nombressolicitantefield'
     })
     requesterFullname: string;
 
@@ -53,10 +53,10 @@ export class AdditionalFieldEntity {
     })
     modularCode: string;
 
-    /*@AutoMap()
+    @AutoMap()
     @Column('varchar',{
-        name: 'telfonofield'
+        name: 'telefonofield'
     })
-    phone: string;*/
+    phone: string;
 
 }

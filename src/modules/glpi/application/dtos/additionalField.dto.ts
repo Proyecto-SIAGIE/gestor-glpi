@@ -3,7 +3,7 @@ import { AutoMap } from "@automapper/classes";
 
 export class AdditionalFieldDto  {
     @AutoMap()
-    id: number;
+    id?: number;
 
     @AutoMap()
     itemsId: number;
