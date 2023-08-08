@@ -14,6 +14,8 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe());
 
+  app.setGlobalPrefix('api/v1');
+
   const config = new DocumentBuilder()
     .setTitle('API Documentation')
     .setDescription('Documentación de API del Proyecto SIAGIE. API de GLPI.')
