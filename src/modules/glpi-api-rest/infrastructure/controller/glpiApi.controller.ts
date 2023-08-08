@@ -2,12 +2,13 @@
 https://docs.nestjs.com/controllers#controllers
 */
 
-import { Body, Controller, Get, Post, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Post, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { GlpiApiImplService } from '../../application/service/glpiApiImpl.service';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { TicketGlpiDto } from '../../application/dtos/ticket-glpi/ticketGlpi.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { TicketGlpiFormDto } from '../../application/dtos/ticket-glpi/ticketGlpiForm.dto';
+import { Response } from 'express';
 
 @ApiTags('glpi-api')
 @Controller('glpi-api')
@@ -32,4 +33,21 @@ export class GlpiApiController {
         //console.log(files);
         return await this.glpiService.createTicketWithFiles(ticket, files);
     }
+
+    @Get('downloadUrl')
+    async getDownload(@Res() res: Response){
+        try {
+            const response = await this.glpiService.downloadUrl();
+         
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', response.headers['content-disposition'].toString()); // Cambiar el nombre y extensión según corresponda
+      
+            res.send(response.data);
+          } catch (error) {
+          
+            console.error('Error al descargar el archivo:', error);
+            res.status(500).json({ error: 'Error al descargar el archivo' });
+          }
+    }
+
 }

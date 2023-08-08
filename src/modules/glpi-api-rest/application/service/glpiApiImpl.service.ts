@@ -5,7 +5,7 @@ https://docs.nestjs.com/providers#services
 import { Injectable } from '@nestjs/common';
 import { IGlpiApiService } from '../../domain/interface/iglpiApi.service';
 import { ErrorManager } from 'src/utils/errors/error.manager';
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import * as https from 'https';
 import * as FormData from 'form-data';
 import { TicketGlpiDto } from '../dtos/ticket-glpi/ticketGlpi.dto';
@@ -20,9 +20,11 @@ import { TicketDetailDto } from '../dtos/ticketDetail.dto';
 import { IieeDto } from '../dtos/iiee.dto';
 import { TicketGlpiFormDto } from '../dtos/ticket-glpi/ticketGlpiForm.dto';
 
+
 @Injectable()
 export class GlpiApiImplService implements IGlpiApiService {
     constructor(private readonly additionalFieldRepository: AdditionalFieldImplRepository) { }
+    
 
     async initSessionToken(): Promise<string> {
         try {
@@ -38,6 +40,7 @@ export class GlpiApiImplService implements IGlpiApiService {
             return response.data.session_token;
 
         } catch (error) {
+            console.log(error);
             throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
         }
     }
@@ -119,7 +122,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }
 
-    async createTicketWithFiles(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
+    async createTicketWithFilesE(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
         try {
 
             const sessionToken = await this.initSessionToken();
@@ -184,11 +187,11 @@ export class GlpiApiImplService implements IGlpiApiService {
             const response = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
       
             const {status, statusText, data} = response;
-            console.log({
+            /*console.log({
                 'status': status,
                 'statusText': statusText,
                 'data': data
-            })
+            })*/
             //console.log(response.data.id);
 
             const extraInfo: AdditionalFieldDto = {
@@ -210,6 +213,167 @@ export class GlpiApiImplService implements IGlpiApiService {
             console.log(error)
             throw ErrorManager.createSignatureError(error.message)
             //throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
+        }
+    }
+
+    async createTicketWithFiles(ticketGlpi: TicketGlpiFormDto, files: Express.Multer.File[]): Promise<any> {
+
+        try{
+            const sessionToken = await this.initSessionToken();
+
+            const userRequest: UserExternalDto = JSON.parse(ticketGlpi.userRequest);
+            const ticketRequest: TicketDto = JSON.parse(ticketGlpi.ticket);
+            const ticketDetailRequest: TicketDetailDto = JSON.parse(ticketGlpi.ticketDetail);
+            const iieeRequest: IieeDto = JSON.parse(ticketGlpi.iiee);
+    
+            const requestConfig = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Session-Token': sessionToken,
+                    'App-Token': process.env.GLPI_APP_TOKEN
+                },
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            };
+    
+            const ticketFormatToGLPI = {
+                input: {
+                    name: ticketDetailRequest.summary,
+                    content: ticketRequest.description,
+                    type: ticketDetailRequest.type,
+                    locations_id: 2,
+                    itilcategories_id: (ticketRequest.subcategory3Id !== 0) ? ticketRequest.subcategory3Id :
+                        (ticketRequest.subcategory2Id !== 0) ? ticketRequest.subcategory2Id :
+                            (ticketRequest.subcategory1Id !== 0) ? ticketRequest.subcategory1Id :
+                            ticketRequest.categoryId,
+                    urgency: ticketDetailRequest.urgency,
+                    impact: ticketDetailRequest.impact,
+                    priority: ticketDetailRequest.priority,
+    
+                    requesttypes_id: ticketDetailRequest.sourceId, //FUENTE DE SOLICITUD
+                    _users_id_requester: 0,
+                    _users_id_requester_notif: {
+                        use_notification: 1,
+                        alternative_email: [userRequest.email]
+                    },
+                }
+            }
+
+            const thisForm = new FormData();
+            thisForm.append('uploadManifest', JSON.stringify(ticketFormatToGLPI), { contentType: 'application/json' });
+    
+            const {data} = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
+    
+            
+            for (let i = 0; i < files.length; i++) {
+                const el = files[i];
+    
+                const {id: documentId} = await this.uploadDocument(el,data.id);
+                console.log(documentId);
+                await this.associateDocumentWithTicket(data.id,documentId);
+            }
+
+            return data;
+        }
+        catch(error){
+            console.log(error)
+            throw ErrorManager.createSignatureError(error.message);
+        }
+        
+    }
+
+    async uploadDocument(file: Express.Multer.File, ticketId: number): Promise<any> {
+        try{
+            const sessionToken = await this.initSessionToken();
+
+            const requestConfig = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Session-Token': sessionToken,
+                    'App-Token': process.env.GLPI_APP_TOKEN
+                },
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            };
+
+            const uploadManifest = {
+                input: {
+                    name: file.originalname.replace(/\.[^.]*$/, ""),
+                    items_id: ticketId,
+                    _filename: [file.originalname]
+                }
+            }
+
+            
+
+            const thisForm = new FormData();
+            thisForm.append('uploadManifest', JSON.stringify(uploadManifest), { contentType: 'application/json' });
+
+            thisForm.append(`filename[]`, file.buffer, file.originalname);
+
+            const response = await axios.post(`${process.env.GLPI_APP_URL}/document/`, thisForm, requestConfig);
+            console.log(response.data.upload_result);
+
+            return response.data;
+        }catch(error){
+            throw ErrorManager.createSignatureError(error.message);
+        }
+    }
+
+    async associateDocumentWithTicket(ticketId: number, documentId: number): Promise<any>{
+        try{
+            const sessionToken = await this.initSessionToken();
+
+            const requestConfig = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Session-Token': sessionToken,
+                    'App-Token': process.env.GLPI_APP_TOKEN
+                },
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+            };
+
+            const documentItem = {
+                input: {
+                    items_id: ticketId,
+                    itemtype: "Ticket",
+                    documents_id: documentId,
+                    users_id: 2
+                }
+            }
+
+            await axios.post(`${process.env.GLPI_APP_URL}/Document_Item/`, documentItem, requestConfig);
+       
+        }catch(error){
+            throw ErrorManager.createSignatureError(error.message);
+        }
+    }
+
+    async downloadUrl(): Promise<AxiosResponse>{
+        try{
+            const sessionToken = await this.initSessionToken();
+
+            const requestConfig: AxiosRequestConfig = {
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Session-Token': sessionToken,
+                    'App-Token': process.env.GLPI_APP_TOKEN
+                },
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+                responseType:'arraybuffer'
+            };
+
+            
+            const resp = await axios.get(`${process.env.GLPI_APP_URL}/Document/108?alt=media`, requestConfig);
+    
+            //console.log(resp.headers['content-disposition']);
+            return resp;
+
+            /*return {
+                buffer: resp,
+                
+            }*/
+       
+        }catch(error){
+            throw ErrorManager.createSignatureError(error.message);
         }
     }
 }
