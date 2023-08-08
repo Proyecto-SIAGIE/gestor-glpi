@@ -122,7 +122,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }
 
-    async createTicketWithFilesE(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
+    /*async createTicketWithFilesE(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
         try {
 
             const sessionToken = await this.initSessionToken();
@@ -187,11 +187,11 @@ export class GlpiApiImplService implements IGlpiApiService {
             const response = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
       
             const {status, statusText, data} = response;
-            /*console.log({
+            console.log({
                 'status': status,
                 'statusText': statusText,
                 'data': data
-            })*/
+            })
             //console.log(response.data.id);
 
             const extraInfo: AdditionalFieldDto = {
@@ -214,7 +214,7 @@ export class GlpiApiImplService implements IGlpiApiService {
             throw ErrorManager.createSignatureError(error.message)
             //throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
         }
-    }
+    }*/
 
     async createTicketWithFiles(ticketGlpi: TicketGlpiFormDto, files: Express.Multer.File[]): Promise<any> {
 
@@ -262,26 +262,65 @@ export class GlpiApiImplService implements IGlpiApiService {
             thisForm.append('uploadManifest', JSON.stringify(ticketFormatToGLPI), { contentType: 'application/json' });
     
             const {data} = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
-    
+            
             
             for (let i = 0; i < files.length; i++) {
                 const el = files[i];
     
-                const {id: documentId} = await this.uploadDocument(el,data.id);
-                console.log(documentId);
-                await this.associateDocumentWithTicket(data.id,documentId);
+                const {id: documentId} = await this.uploadDocumentToGLPI(el,data.id);
+                //console.log(documentId);
+                await this.assignTicketWithDocument(data.id,documentId);
             }
+
+            const addFieldEntity = await this.addExtraInformationToTicketById(data.id,iieeRequest,userRequest,ticketRequest);
+            if(!addFieldEntity){
+                throw new ErrorManager({
+                    type: 'BAD_REQUEST',
+                    message: `Probably the 'pluginFieldsContainersId' is wrong or the GLPI 
+                    AdditionalField plugin was not configured`
+                })
+            }
+            //console.log(data.id)
+
+            
 
             return data;
         }
         catch(error){
-            console.log(error)
+            //console.log(error)
             throw ErrorManager.createSignatureError(error.message);
         }
         
     }
 
-    async uploadDocument(file: Express.Multer.File, ticketId: number): Promise<any> {
+    async addExtraInformationToTicketById(ticketId: number, 
+        iieeRequest: IieeDto, 
+        userRequest: UserExternalDto, 
+        ticketRequest: TicketDto): Promise<any> {
+        try{
+
+            const extraInfo: AdditionalFieldDto = {
+                modularCode: iieeRequest.modularCode,
+                itemsId: ticketId,
+                itemType: 'ticket',
+                pluginFieldsContainersId: 3,
+                DNI: userRequest.dni,
+                phone: userRequest.phone,
+                requesterFullname: `${userRequest.name} ${userRequest.lastName}`,
+                studentDNI: ticketRequest.studentDNI
+            }
+
+            ///console.log(extraInfo)
+
+            const addEntity = mapper.map(extraInfo,AdditionalFieldDto,AdditionalFieldEntity);
+            return await this.additionalFieldRepository.registerAdditionalInformation(addEntity);
+
+        }catch(error){
+            throw ErrorManager.createSignatureError(error.message);
+        }
+    }
+
+    async uploadDocumentToGLPI(file: Express.Multer.File, ticketId: number): Promise<any> {
         try{
             const sessionToken = await this.initSessionToken();
 
@@ -310,7 +349,7 @@ export class GlpiApiImplService implements IGlpiApiService {
             thisForm.append(`filename[]`, file.buffer, file.originalname);
 
             const response = await axios.post(`${process.env.GLPI_APP_URL}/document/`, thisForm, requestConfig);
-            console.log(response.data.upload_result);
+            console.log(response.data);
 
             return response.data;
         }catch(error){
@@ -318,7 +357,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }
 
-    async associateDocumentWithTicket(ticketId: number, documentId: number): Promise<any>{
+    async assignTicketWithDocument(ticketId: number, documentId: number): Promise<any>{
         try{
             const sessionToken = await this.initSessionToken();
 
@@ -347,7 +386,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }
 
-    async downloadUrl(): Promise<AxiosResponse>{
+    async downloadDocumentById(documentId: number): Promise<AxiosResponse>{
         try{
             const sessionToken = await this.initSessionToken();
 
@@ -361,17 +400,9 @@ export class GlpiApiImplService implements IGlpiApiService {
                 responseType:'arraybuffer'
             };
 
-            
-            const resp = await axios.get(`${process.env.GLPI_APP_URL}/Document/108?alt=media`, requestConfig);
-    
-            //console.log(resp.headers['content-disposition']);
+            const resp = await axios.get(`${process.env.GLPI_APP_URL}/Document/${documentId}?alt=media`, requestConfig);
             return resp;
 
-            /*return {
-                buffer: resp,
-                
-            }*/
-       
         }catch(error){
             throw ErrorManager.createSignatureError(error.message);
         }

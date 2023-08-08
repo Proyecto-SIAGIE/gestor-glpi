@@ -2,7 +2,7 @@
 https://docs.nestjs.com/controllers#controllers
 */
 
-import { Body, Controller, Get, Post, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { GlpiApiImplService } from '../../application/service/glpiApiImpl.service';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { TicketGlpiDto } from '../../application/dtos/ticket-glpi/ticketGlpi.dto';
@@ -34,15 +34,15 @@ export class GlpiApiController {
         return await this.glpiService.createTicketWithFiles(ticket, files);
     }
 
-    @Get('downloadUrl')
-    async getDownload(@Res() res: Response){
+    @Get('document/:id/download')
+    async getDownload(@Param('id', ParseIntPipe) id: number,  @Res() res: Response){
         try {
-            const response = await this.glpiService.downloadUrl();
+            const response = await this.glpiService.downloadDocumentById(id);
          
             res.set('Content-Type', 'application/octet-stream');
-            res.set('Content-Disposition', response.headers['content-disposition'].toString()); // Cambiar el nombre y extensión según corresponda
-      
+            res.set('Content-Disposition', response.headers['content-disposition'].toString()); 
             res.send(response.data);
+            
           } catch (error) {
           
             console.error('Error al descargar el archivo:', error);
