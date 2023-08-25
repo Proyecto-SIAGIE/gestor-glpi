@@ -2,7 +2,7 @@
 https://docs.nestjs.com/providers#services
 */
 
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { IGlpiApiService } from '../../domain/interface/iglpiApi.service';
 import { ErrorManager } from 'src/utils/errors/error.manager';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
@@ -19,6 +19,7 @@ import { TicketDto } from '../dtos/ticket.dto';
 import { TicketDetailDto } from '../dtos/ticketDetail.dto';
 import { IieeDto } from '../dtos/iiee.dto';
 import { TicketGlpiFormDto } from '../dtos/ticket-glpi/ticketGlpiForm.dto';
+import { IGenericResponse } from 'src/utils/generic';
 
 
 @Injectable()
@@ -45,7 +46,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }
 
-    async createTicketWithoutFiles(ticket: TicketGlpiDto): Promise<any> {
+    /*async createTicketWithoutFiles(ticket: TicketGlpiDto): Promise<any> {
         try {
 
             const sessionToken = await this.initSessionToken();
@@ -120,7 +121,7 @@ export class GlpiApiImplService implements IGlpiApiService {
             throw ErrorManager.createSignatureError(error.message)
             //throw ErrorManager.createSignatureError(`BAD_REQUEST :: ${error.response.data[0]}`)
         }
-    }
+    }*/
 
     /*async createTicketWithFilesE(ticketGlpi: TicketGlpiFormDto, files: any[]): Promise<any> {
         try {
@@ -216,7 +217,7 @@ export class GlpiApiImplService implements IGlpiApiService {
         }
     }*/
 
-    async createTicketWithFiles(ticketGlpi: TicketGlpiFormDto, files: Express.Multer.File[]): Promise<any> {
+    async registerTicket(ticketGlpi: TicketGlpiFormDto, files: Express.Multer.File[]): Promise<IGenericResponse<Object>> {
 
         try{
             const sessionToken = await this.initSessionToken();
@@ -261,14 +262,24 @@ export class GlpiApiImplService implements IGlpiApiService {
             const thisForm = new FormData();
             thisForm.append('uploadManifest', JSON.stringify(ticketFormatToGLPI), { contentType: 'application/json' });
     
-            const {data} = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
+            const resp = await axios.post(`${process.env.GLPI_APP_URL}/Ticket/`, thisForm, requestConfig);
+            const {data} = resp;
             
+            const uploadMessages = [];
             
             for (let i = 0; i < files.length; i++) {
                 const el = files[i];
     
-                const {id: documentId} = await this.uploadDocumentToGLPI(el,data.id);
-                //console.log(documentId);
+                const uploadResp = await this.uploadDocumentToGLPI(el,data.id);
+                const {id: documentId} = uploadResp;
+                const {message, upload_result:{filename: array_files}} = uploadResp;
+                uploadMessages.push({
+                    id: documentId,
+                    message: message,
+                    filename: array_files[0].display,
+                    filesize: array_files[0].filesize
+                });
+                
                 await this.assignTicketWithDocument(data.id,documentId);
             }
 
@@ -282,9 +293,14 @@ export class GlpiApiImplService implements IGlpiApiService {
             }
             //console.log(data.id)
 
-            
+            //console.log(data);
 
-            return data;
+            return {
+                success: true,
+                code: HttpStatus.OK,
+                data: data,
+                messages: uploadMessages
+            };
         }
         catch(error){
             //console.log(error)
@@ -306,8 +322,7 @@ export class GlpiApiImplService implements IGlpiApiService {
                 pluginFieldsContainersId: 3,
                 DNI: userRequest.dni,
                 phone: userRequest.phone,
-                requesterFullname: `${userRequest.name} ${userRequest.lastName}`,
-                studentDNI: ticketRequest.studentDNI
+                requesterFullname: `${userRequest.name} ${userRequest.lastName}`
             }
 
             ///console.log(extraInfo)
@@ -349,7 +364,7 @@ export class GlpiApiImplService implements IGlpiApiService {
             thisForm.append(`filename[]`, file.buffer, file.originalname);
 
             const response = await axios.post(`${process.env.GLPI_APP_URL}/document/`, thisForm, requestConfig);
-            console.log(response.data);
+            //console.log(response.data);
 
             return response.data;
         }catch(error){

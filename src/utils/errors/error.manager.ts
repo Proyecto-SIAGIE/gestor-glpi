@@ -9,7 +9,12 @@ export class ErrorManager extends Error {
 
         const [name, onlyMessage] = message.includes('::') ? message.split(" :: ") : ['', message];
         const statusCode = name !== '' ? HttpStatus[name] : HttpStatus.INTERNAL_SERVER_ERROR;
-        throw new HttpException(onlyMessage, statusCode);
+        const exceptionResponse = {
+            success: false, // Agrega la propiedad booleana "success"
+            message: onlyMessage,
+            code: statusCode
+        };
+        throw new HttpException(exceptionResponse, statusCode);
       
     }
 }

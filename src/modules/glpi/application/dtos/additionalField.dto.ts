@@ -20,8 +20,6 @@ export class AdditionalFieldDto  {
     @AutoMap()
     requesterFullname: string;
 
-    @AutoMap()
-    studentDNI: string;
 
     @AutoMap()
     modularCode: string;

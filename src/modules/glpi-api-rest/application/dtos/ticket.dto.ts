@@ -12,10 +12,6 @@ export class TicketDto {
     description: string;
 
     @ApiProperty()
-    @AutoMap()
-    studentDNI: string;
-
-    @ApiProperty()
     @IsInt()
     @IsPositive()
     @AutoMap()

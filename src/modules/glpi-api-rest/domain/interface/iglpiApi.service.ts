@@ -6,8 +6,8 @@ import { UserExternalDto } from "../../application/dtos/userExternal.dto";
 
 export interface IGlpiApiService {
     initSessionToken(): Promise<string>;
-    createTicketWithoutFiles(ticket: TicketGlpiDto): Promise<any>;
-    createTicketWithFiles(ticket: TicketGlpiFormDto, files: any[]): Promise<any>;
+    //createTicketWithoutFiles(ticket: TicketGlpiDto): Promise<any>;
+    registerTicket(ticket: TicketGlpiFormDto, files: any[]): Promise<any>;
     uploadDocumentToGLPI(files:Express.Multer.File, ticketId: number): Promise<any>;
     assignTicketWithDocument(ticketId: number, documentId: number): Promise<any>;
     addExtraInformationToTicketById(ticketId: number, iieeRequest: IieeDto, userRequest: UserExternalDto, ticketRequest: TicketDto): Promise<any>;

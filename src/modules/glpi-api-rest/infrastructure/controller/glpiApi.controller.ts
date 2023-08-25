@@ -20,18 +20,18 @@ export class GlpiApiController {
         return await this.glpiService.initSessionToken();
     }
 
-    @Post('createTicket')
+    /*@Post('createTicket')
     async createTicketWithoutFiles(@Body() ticket: TicketGlpiDto ){
         return await this.glpiService.createTicketWithoutFiles(ticket);
-    }
+    }*/
 
-    @Post('createTicketWithFiles')
+    @Post('tickets')
     @ApiConsumes('multipart/form-data') // Indica que se acepta la carga de archivos en la solicitud
     @ApiBody({ type: TicketGlpiFormDto })
     @UseInterceptors(FilesInterceptor('files'))
     async createTicketWithFiles(@Body() ticket: TicketGlpiFormDto, @UploadedFiles() files: Express.Multer.File[]){
         //console.log(files);
-        return await this.glpiService.createTicketWithFiles(ticket, files);
+        return await this.glpiService.registerTicket(ticket, files);
     }
 
     @Get('document/:id/download')

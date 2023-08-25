@@ -41,11 +41,6 @@ export class AdditionalFieldEntity {
     })
     requesterFullname: string;
 
-    @AutoMap()
-    @Column('varchar',{
-        name: 'dniestudiantefield'
-    })
-    studentDNI: string;
 
     @AutoMap()
     @Column('varchar',{
