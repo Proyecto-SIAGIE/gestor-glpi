@@ -1,3 +1,5 @@
+import { IGenericResponse } from "src/utils/generic";
+import { FollowupDto } from "../../application/dtos/followup-glpi/followupGlpi.dto";
 import { IieeDto } from "../../application/dtos/iiee.dto";
 import { TicketGlpiDto } from "../../application/dtos/ticket-glpi/ticketGlpi.dto";
 import { TicketGlpiFormDto } from "../../application/dtos/ticket-glpi/ticketGlpiForm.dto";
@@ -12,4 +14,8 @@ export interface IGlpiApiService {
     assignTicketWithDocument(ticketId: number, documentId: number): Promise<any>;
     addExtraInformationToTicketById(ticketId: number, iieeRequest: IieeDto, userRequest: UserExternalDto, ticketRequest: TicketDto): Promise<any>;
     downloadDocumentById(documentId: number): Promise<any>;
+    registerFollowup(ticketId: number, followupReq: FollowupDto): Promise<any>;
+    updateFollowupById(followId: number, followupdto: FollowupDto): Promise<IGenericResponse<Object>>;
+    listFollowupsAndSolutionsByTicketId(ticketId: number): Promise<IGenericResponse<any[]>>;
+    listITILCategories(): Promise<any>;
 }

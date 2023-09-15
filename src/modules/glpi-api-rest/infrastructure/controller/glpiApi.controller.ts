@@ -2,13 +2,14 @@
 https://docs.nestjs.com/controllers#controllers
 */
 
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Put, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { GlpiApiImplService } from '../../application/service/glpiApiImpl.service';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { TicketGlpiDto } from '../../application/dtos/ticket-glpi/ticketGlpi.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { TicketGlpiFormDto } from '../../application/dtos/ticket-glpi/ticketGlpiForm.dto';
 import { Response } from 'express';
+import { FollowupDto } from '../../application/dtos/followup-glpi/followupGlpi.dto';
 
 @ApiTags('glpi-api')
 @Controller('glpi-api')
@@ -48,6 +49,26 @@ export class GlpiApiController {
             console.error('Error al descargar el archivo:', error);
             res.status(500).json({ error: 'Error al descargar el archivo' });
           }
+    }
+
+    @Post('tickets/:ticketId/ITILFollowups')
+    async createFollowup(@Param('ticketId', ParseIntPipe) ticketId: number, @Body() followupReq: FollowupDto){
+        return await this.glpiService.registerFollowup(ticketId, followupReq);
+    }
+
+    @Patch('ITILFollowups/:followupId')
+    async updateFollowup(@Param('followupId', ParseIntPipe) followupId: number, @Body() followupReq: FollowupDto){
+        return await this.glpiService.updateFollowupById(followupId, followupReq);
+    }
+
+    @Get('tickets/:ticketId/ITILAnswers')
+    async getAnswersFromTicket(@Param('ticketId', ParseIntPipe) ticketId: number){
+        return await this.glpiService.listFollowupsAndSolutionsByTicketId(ticketId);
+    }
+
+    @Get('ITILCategories')
+    async getCategories(){
+        return await this.glpiService.listITILCategories();
     }
 
 }

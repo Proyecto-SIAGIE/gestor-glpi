@@ -1,6 +1,5 @@
 import { GlpiApiController } from './modules/glpi-api-rest/infrastructure/controller/glpiApi.controller';
 import { GlpiApiRestModule } from './modules/glpi-api-rest/glpiApiRest.module';
-import { GlpiModule } from './modules/glpi/glpi.module';
 import { DatabaseModule } from './common/database/database.module';
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ApiTokenCheckMiddleware } from './common/middleware/apiTokenCheck.middleware';
@@ -11,7 +10,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 @Module({
   imports: [
         GlpiApiRestModule, 
-        GlpiModule, 
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot({
       ttl: +process.env.THROTTLER_MAX_SECONDS,

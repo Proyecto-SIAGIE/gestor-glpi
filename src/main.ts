@@ -2,10 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { resourceToModel } from './utils/mapping/resourceToModel.mapping';
 import * as bodyParser from 'body-parser';
 import helmet from 'helmet';
-resourceToModel();
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -35,7 +34,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('documentation', app, document);
   
   await app.listen(+process.env.PORT);
   console.log(`Application is running on: ${await app.getUrl()}`)
