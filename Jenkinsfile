@@ -5,60 +5,13 @@ pipeline {
         HOST_IP = '10.200.8.160'
         HOST_SSH_USER =  credentials('host_ssh_user_8_160')
         HOST_SSH_PASSWORD = credentials('host_ssh_password_8_160')
-        PORT = 19204
-        PROJECT_NAME="docker_mse_iged_seed"
+        PORT = 19206
+        PROJECT_NAME="docker_mse_iged_gestor_glpi"
         PROJECT_FOLDER="mse_iged_dockers_images"
 
-        DOCKER_NODE16 = 'node:16'
     }
     
     stages {
-
-        stage("NodeJS Install") {
-            agent {
-                docker {
-                    image env.DOCKER_NODE16
-                    args '-u root'                   
-                }
-            }
-            steps {                                   
-                sh 'npm ci'
-            }
-        }
-
-        stage("NodeJS Test") {
-            agent {
-                docker {
-                    image env.DOCKER_NODE16
-                    args '-u root'                   
-                }
-            }
-            steps {     
-                script{
-                    try {
-                        sh 'npm run sonarqube:test'
-                    } catch (Exception e) {                    
-                        echo 'Las pruebas unitarias han fallado, pero se marcará como exitoso'
-                    }    
-                }  
-            }
-        }
-
-        stage("NodeJS Sonarqube") {
-            agent any
-            steps {  
-                script{
-                     try {
-                        def scannerHome = tool 'sonarscan';
-                        withSonarQubeEnv('sonarqube-dev') {
-                            sh "${tool("sonarscan")}/bin/sonar-scanner -Dsonar.qualitygate.wait=true"
-                        }  
-                    } catch (Exception e) {                    
-                        echo 'Las pruebas de cobertura con SonarQube han fallado, pero se marcará como exitoso'
-                    }                                                   
-                }
-            }
-        }
 
         stage('Docker Building') {
         agent any
@@ -127,7 +80,7 @@ pipeline {
                 remote.allowAnyHosts = true
                             
                 remote.fileTransfer = "sftp"
-                sshCommand remote: remote, command: "docker run -d -it --rm --network net.1 --name ${PROJECT_NAME} -p ${PORT}:3031 ${PROJECT_NAME}"
+                sshCommand remote: remote, command: "docker run -d -it --rm --network net.1 --name ${PROJECT_NAME} -p ${PORT}:19211 ${PROJECT_NAME}"
             }  
         }
         }
